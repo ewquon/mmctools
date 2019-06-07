@@ -24,6 +24,7 @@ class OpenFAST(object):
         self.verbose = verbose
         self.cwd = dpath
         self.inflowtype = None # type of inflow
+        self.Uref = None # reference velocity for each run
         self.Nruns = Nruns
         self.parallel = False
         self.outputs = None
@@ -59,6 +60,7 @@ class OpenFAST(object):
                       prefix='turbsim'):
         """Setup all turbsim input files for all seeds"""
         self.inflowdir = inflowdir
+        self.Uref = inputs['URef']
         self.ts_inputfiles = [
             os.path.join(self.cwd, self.inflowdir, '{}_{:02d}.inp'.format(prefix,irun))
             for irun in range(self.Nruns)
