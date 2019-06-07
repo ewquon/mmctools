@@ -23,7 +23,7 @@ class OpenFAST(object):
         """
         self.verbose = verbose
         self.cwd = dpath
-        self.inflow = None
+        self.inflowtype = None # type of inflow
         self.Nruns = Nruns
         self.parallel = False
         self.outputs = None
@@ -69,7 +69,7 @@ class OpenFAST(object):
             if self.verbose:
                 print('Generating',inputfile,'from',templatefile)
             self._generate_input(inputfile,templatefile,inputs)
-        self.inflow = 'turbsim'
+        self.inflowtype = 'turbsim'
 
     def run_turbsim(self,iseed):
         """Run turbsim with pre-generated turbulence seed"""
@@ -101,7 +101,7 @@ class OpenFAST(object):
         inflowpath = os.path.join(self.cwd, inflowfile)
         if self.verbose:
             print('Generating',inflowpath)
-        if self.inflow == 'turbsim':
+        if self.inflowtype == 'turbsim':
             # TurbSim synthetic turbulence with binary flowfield input
             inflowtemplate = os.path.join(self.cwd, 'InflowWind_bts.dat')
             tsinput = os.path.split(self.ts_inputfiles[irun])[1]
@@ -112,7 +112,7 @@ class OpenFAST(object):
             }
             self._generate_input(inflowpath, inflowtemplate, inputs)
         else:
-            raise RuntimeError('Unexpected inflow type: '+self.inflow)
+            raise RuntimeError('Unexpected inflow type: '+self.inflowtype)
 
         fstfile = 'run{:02d}.fst'.format(irun)
         fstpath = os.path.join(self.cwd, fstfile)
@@ -129,10 +129,10 @@ class OpenFAST(object):
     def run(self,i):
         """Run specified simulation (inflow, openfast)"""
         # setup inflow, if needed
-        if self.inflow == 'turbsim':
+        if self.inflowtype == 'turbsim':
             self.run_turbsim(i)
         else:
-            assert self.inflow is None
+            assert self.inflowtype is None
             raise RuntimeError('Need to setup inflow')
         # run openfast
         fstfile = self._setup_openfast(i)
