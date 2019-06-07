@@ -8,6 +8,7 @@ from multiprocessing import Pool
 
 import pandas as pd
 from datatools.codedrivers import InputTemplate
+from datatools.FAST.input import FASTInputDeck
 from datatools.FAST.output import read
 
 class OpenFAST(object):
@@ -27,7 +28,9 @@ class OpenFAST(object):
         self.Uref = None # reference velocity for each run
         self.Nruns = Nruns
         self.parallel = False
-        self.outputs = None
+        self.inputs = [] # list of FASTInputDeck objects
+        self.outputs = None # dataframe
+
         # integer range from turbsim manual
         random.seed(start_seed)
         self.seeds = [ random.randint(-2147483648, 2147483647)
@@ -174,10 +177,14 @@ class OpenFAST(object):
     def read_outputs(self):
         """Read all simulation outputs and return dataframe"""        
         dflist = []
+        self.inputs = []
         for irun in range(self.Nruns):
+            fstfile = os.path.join(self.cwd, 'run{:02d}.fst'.format(irun))
+            self.inputs.append(FASTInputDeck(fstfile))
             outfile = os.path.join(self.cwd, 'run{:02d}.out'.format(irun))
             df = read(outfile).to_dataframe()
             df['run'] = irun
             dflist.append(df)
         self.outputs =  pd.concat(dflist)
         return self.outputs
+
