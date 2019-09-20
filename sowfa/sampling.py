@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from ..dataloaders import read_date_dirs
-from .openfoam import InputFile
+from .utils import InputFile
 
 def textreader(fpath, index_names=None, verbose=True):
     """Wrapper around pd.read_csv() for SOWFA text output. This is
