@@ -29,11 +29,17 @@ class InputFile(object):
         # read full file
         with open(fpath) as f:
             lines = f.readlines()
-        # trim single-line comments
+        # trim single-line comments and remove directives
         for i,line in enumerate(lines):
-            idx = line.find('//')
-            if idx >= 0:
-                lines[i] = line[:idx].strip()
+            line = line.strip()
+            if line.startswith('#'):
+                if self.DEBUG:
+                    print('Ignoring directive:',line)
+                lines[i] = ''
+            else:
+                idx = line.find('//')
+                if idx >= 0:
+                    lines[i] = line[:idx].strip()
         # trim multi-line comments
         txt = '\n'.join(lines)
         idx0 = txt.find('/*')
