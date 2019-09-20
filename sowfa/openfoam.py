@@ -23,6 +23,7 @@ class InputFile(object):
         'none',
     ]
 
+
     def __init__(self,fpath):
         self.items = {}
         # read full file
@@ -181,4 +182,8 @@ class InputFile(object):
             else:
                 for newname,newdef,newcontainertype in self._split_defs(newdefn):
                     self._parse(newname,newdef,newcontainertype,parent=newparent)
+
+
+    def __getitem__(self, key):
+        return self.items[key]
 
