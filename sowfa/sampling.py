@@ -2,9 +2,22 @@ import os
 import numpy as np
 import pandas as pd
 
-# TODO: migrate relevant code from NWTC/datatools to a2e-mmc/mmctools
-from datatools.series import SOWFATimeSeries
+from ..dataloaders import read_date_dirs
 
+
+def textreader(fpath, index_names=None, verbose=True):
+    """Wrapper around pd.read_csv() for SOWFA text output. This is
+    essentially np.loadtxt(), but read_csv() is significantly faster.
+    """
+    df = pd.read_csv(fpath, delim_whitespace=True, header=None, comment='#')
+    if index_names is not None:
+        if isinstance(index_names,str):
+            index_names = [index_names]
+        df.rename(columns={icol: name for icol,name in enumerate(index_names)},
+                  inplace=True)
+        df.set_index(index_names, inplace=True)
+    return df
+        
 
 class ScanningLidar(object):
     """Container for scanningLidar sampling output"""
@@ -22,11 +35,8 @@ class ScanningLidar(object):
         self._read(dpath)
 
     def _read(self,dpath):
-        self.timeseries = SOWFATimeSeries(dpath)
-        self.outputs = self.timeseries.outputs()
-        if self.verbose:
-            print('{:d} samples including {:s}'.format(
-                self.timeseries.Ntimes,
-                str(self.outputs),
-            ))
-        assert all([(field in self.outputs) for field in self.expected_outputs])
+        self.df = read_date_dirs(dpath, expected_date_format=None,
+                                 file_filter='*Vel',
+                                 reader=textreader,
+                                 index_names=['time','beam'],
+                                 verbose=self.verbose)
