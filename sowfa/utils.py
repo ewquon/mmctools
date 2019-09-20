@@ -156,7 +156,7 @@ class InputFile(object):
             if self.DEBUG:
                 print(name,'-->',defn)
             if parent is None:
-                setattr(self, name, defn)
+                self._properties[name] = defn
             elif isinstance(parent, dict):
                 parent[name] = defn
             else:
