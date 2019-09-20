@@ -59,6 +59,14 @@ class InputFile(object):
                 print('PARSING',name,'FROM',line,'of TYPE',containertype)
             self._parse(name,line,containertype)
 
+    
+    def __repr__(self):
+        descstrs = [
+            '{:s} : {:s}'.format(key,str(val))
+            for key,val in self._properties.items()
+        ]
+        return '\n'.join(descstrs)
+
 
     def _split_defs(self,txt):
         names, lines, container = [], [], []
