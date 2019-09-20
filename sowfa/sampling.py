@@ -21,7 +21,7 @@ def textreader(fpath, index_names=None, verbose=True):
 
 class ScanningLidar(object):
     """Container for scanningLidar sampling output"""
-    expected_outputs = ['beamOrientation', 'losVel', 'uVel', 'vVel', 'wVel']
+    expected_outputs = ['uVel', 'vVel', 'wVel', 'losVel']
 
     def __init__(self,dpath,verbose=True):
         """Load postProcessing output
@@ -35,8 +35,22 @@ class ScanningLidar(object):
         self._read(dpath)
 
     def _read(self,dpath):
-        self.df = read_date_dirs(dpath, expected_date_format=None,
-                                 file_filter='*Vel',
-                                 reader=textreader,
-                                 index_names=['time','beam'],
-                                 verbose=self.verbose)
+        data = {
+            output:
+            read_date_dirs(dpath, expected_date_format=None,
+                           file_filter=output,
+                           reader=textreader,
+                           index_names=['time','beam'],
+                           verbose=self.verbose)
+            for output in self.expected_outputs
+        }
+        for output in self.expected_outputs:
+            try:
+                levels = self.beamDistribution
+            except AttributeError:
+                levels = np.arange(len(data[output].columns))
+            columns = pd.MultiIndex.from_product(([output],levels),
+                                                 names=[None, 'level'])
+            data[output].columns = columns
+            data[output] = data[output].stack(dropna=False)
+        self.df = pd.concat([df for output,df in data.items()], axis=1)
