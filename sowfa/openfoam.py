@@ -37,10 +37,12 @@ class InputFile(object):
         # trim multi-line comments
         txt = '\n'.join(lines)
         idx0 = txt.find('/*')
-        while idx0 > 0:
-            idx1 = txt.find('*/')
+        while idx0 >= 0:
+            idx1 = txt.find('*/',idx0+1)
             assert (idx1 > idx0), 'Mismatched comment block'
-            txt = txt[:idx0] + txt[idx1:]
+            if self.DEBUG:
+                print('Remove comment block:',txt[idx0:idx1])
+            txt = txt[:idx0] + txt[idx1+2:]
             idx0 = txt.find('/*')
         # consolidate definitions into single lines
         txt = txt.replace('\n',' ')
