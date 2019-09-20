@@ -38,10 +38,12 @@ class ScanningLidar(object):
         """
         self.verbose = verbose
         self.name = os.path.split(dpath)[-1]
-        self._read_def(sampling_definition)
-        self._read(dpath)
+        self._read_definition(sampling_definition)
+        self._read_beam_orientations(dpath)
+        self._read_velocities(dpath)
 
-    def _read_def(self,fpath):
+    def _read_definition(self,fpath):
+        """Read sampling definition file"""
         self.properties = None
         if fpath is None:
             return
@@ -51,7 +53,23 @@ class ScanningLidar(object):
         except KeyError:
             print(self.name,'not defined in',fpath)
 
-    def _read(self,dpath):
+    def _read_beam_orientations(self,dpath):
+        """Read sampled LOS and component velocity data"""
+        # read all velocity data
+        df = read_date_dirs(dpath, expected_date_format=None,
+                            file_filter='beamOrientation',
+                            verbose=self.verbose,
+                            # read_csv() options:
+                            delim_whitespace=True, comment='#',
+                            names=['time','beam','ori_x','ori_y','ori_z'],
+                           )
+        df['ori_x'] = df['ori_x'].apply(lambda x: float(x[1:])) # lstrip (
+        df['ori_z'] = df['ori_z'].apply(lambda x: float(x[:-1])) # rstrip )
+        self.beam_orientation = df.set_index(['time','beam'])
+
+    def _read_velocities(self,dpath):
+        """Read sampled LOS and component velocity data"""
+        # read all velocity data
         data = {
             output:
             read_date_dirs(dpath, expected_date_format=None,
@@ -61,6 +79,7 @@ class ScanningLidar(object):
                            verbose=self.verbose)
             for output in self.expected_outputs
         }
+        # setup columns for multiindexing
         for output in self.expected_outputs:
             try:
                 levels = self.beamDistribution
@@ -70,5 +89,7 @@ class ScanningLidar(object):
                                                  names=[None, 'level'])
             data[output].columns = columns
             data[output] = data[output].stack(dropna=False)
-        self.df = pd.concat([df for output,df in data.items()], axis=1)
+        # form velocity dataframe
+        self.vel = pd.concat([df for output,df in data.items()], axis=1)
+
 
