@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from ..dataloaders import read_date_dirs
-
+from .openfoam import InputFile
 
 def textreader(fpath, index_names=None, verbose=True):
     """Wrapper around pd.read_csv() for SOWFA text output. This is
@@ -23,16 +23,33 @@ class ScanningLidar(object):
     """Container for scanningLidar sampling output"""
     expected_outputs = ['uVel', 'vVel', 'wVel', 'losVel']
 
-    def __init__(self,dpath,verbose=True):
+    def __init__(self,dpath,sampling_definition=None,verbose=True):
         """Load postProcessing output
 
         Parameters
         ----------
         dpath : str
-            Path to virtual lidar output, e.g., casedir/postProcessing/lidar
+            Path to virtual lidar output, e.g., casedir/postProcessing/lidarname
+        sampling_definition : str, optional
+            Path to function object definition, e.g., casedir/system/sampling/lidardef,
+            that contains an openfoam dictionary defining 'lidarname'
+            If read, provides additional lidar information such as the
+            beamDistribution (dictating sample ranges)
         """
         self.verbose = verbose
+        self.name = os.path.split(dpath)[-1]
+        self._read_def(sampling_definition)
         self._read(dpath)
+
+    def _read_def(self,fpath):
+        self.properties = None
+        if fpath is None:
+            return
+        defs = InputFile(fpath)
+        try:
+            self.properties = defs[self.name]
+        except KeyError:
+            print(self.name,'not defined in',fpath)
 
     def _read(self,dpath):
         data = {
@@ -54,3 +71,4 @@ class ScanningLidar(object):
             data[output].columns = columns
             data[output] = data[output].stack(dropna=False)
         self.df = pd.concat([df for output,df in data.items()], axis=1)
+
