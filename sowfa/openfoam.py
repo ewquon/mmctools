@@ -25,7 +25,7 @@ class InputFile(object):
 
 
     def __init__(self,fpath):
-        self.items = {}
+        self.properties = {}
         # read full file
         with open(fpath) as f:
             lines = f.readlines()
@@ -157,8 +157,8 @@ class InputFile(object):
             # we have a subblock, create new container
             if parent is None:
                 # parent is the InputFile object
-                self.items[name] = containertype()
-                newparent = self.items[name]
+                self.properties[name] = containertype()
+                newparent = self.properties[name]
             elif isinstance(parent, dict):
                 # parent is a dictionary
                 if self.DEBUG:
@@ -185,5 +185,8 @@ class InputFile(object):
 
 
     def __getitem__(self, key):
-        return self.items[key]
+        return self.properties[key]
+
+    def items(self):
+        return self.properties.items()
 
