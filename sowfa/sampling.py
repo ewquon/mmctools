@@ -65,7 +65,7 @@ class ScanningLidar(object):
                            )
         df['ori_x'] = df['ori_x'].apply(lambda x: float(x[1:])) # lstrip (
         df['ori_z'] = df['ori_z'].apply(lambda x: float(x[:-1])) # rstrip )
-        self.beam_orientation = df.set_index(['time','beam'])
+        self.beamOrientation = df.set_index(['time','beam'])
 
     def _read_velocities(self,dpath):
         """Read sampled LOS and component velocity data"""
@@ -82,8 +82,8 @@ class ScanningLidar(object):
         # setup columns for multiindexing
         for output in self.expected_outputs:
             try:
-                levels = self.beamDistribution
-            except AttributeError:
+                levels = self.properties['beamDistribution']
+            except (TypeError, KeyError):
                 levels = np.arange(len(data[output].columns))
             columns = pd.MultiIndex.from_product(([output],levels),
                                                  names=[None, 'level'])
