@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from scipy.interpolate import interp1d
 
 from ..dataloaders import read_date_dirs
 from .utils import InputFile
@@ -112,4 +113,49 @@ class ScanningLidar(object):
         elev = np.degrees(np.arccos(dotprod))
         return azi, elev
 
+    def regularize(self, times, heights,
+                   time_interp='linear', height_interp='linear'):
+        """Interpolate in time/height to get samples from all beams at
+        the same times and heights. Currently, the beam elevation is
+        assumed to be constant in time. Height interpolation is
+        performed first, then time interpolation.
+
+        Returns a new dataframe with 'height' instead of 'level' index.
+        """
+        # update levels with beam-dependent heights
+        # - work with a copy
+        df = self.vel.reset_index(level='level')
+        # - beam projection (assume constant elevation here)
+        for beam,elev in enumerate(self.elevation0):
+            df.loc[(slice(None),beam), 'level'] *= np.cos(np.radians(90. - elev))
+        df.rename(columns={'level':'height'}, inplace=True)
+        df.set_index('height', append=True, inplace=True)
+        # unstack time/beam indices to work with height index first
+        unstacked = df.unstack(level=[0,1])
+        # get rid of nans
+        # - note that method=='index' here implies linear interpolation
+        #   based on index (height) values
+        unstacked_notna = unstacked.interpolate(method='index',axis=0)
+        # now, interpolate
+        # - new height rows are added
+        interpfun = interp1d(unstacked_notna.index, unstacked_notna,
+                             kind=height_interp, axis=0)
+        for z in heights:
+            unstacked_notna.loc[z] = interpfun(z)
+        # select only the new rows
+        unstacked_interp = unstacked_notna.loc[heights]
+
+        # now interpolate in time
+        # - this has a time index with beam/height columns
+        unstacked2 = unstacked_interp.stack(level='time').unstack('height')
+        unstacked2_notna = unstacked2.interpolate(method='index',axis=0)
+        interpfun2 = interp1d(unstacked2_notna.index, unstacked2_notna,
+                              kind=time_interp, axis=0)
+        for t in times:
+            unstacked2_notna.loc[t] = interpfun2(t)
+        unstacked2_interp = unstacked2_notna.loc[times]
+
+        # recreate multiindexed dataframe with same form
+        df = unstacked2_interp.stack(level=['beam','height'])
+        return df.reorder_levels(order=['time','beam','height']).sort_index()
 
