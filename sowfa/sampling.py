@@ -52,6 +52,12 @@ class ScanningLidar(object):
             self.properties = defs[self.name]
         except KeyError:
             print(self.name,'not defined in',fpath)
+        else:
+            # beamScanPattern.shape == (Nbeams, 4)
+            # columns: time, ori_x, ori_y, ori_z
+            scanpattern = np.array(self.properties['beamScanPattern'])
+            self.azimuth0, self.elevation0 = self.calc_azi_elev(
+                    scanpattern[:,1], scanpattern[:,2], scanpattern[:,3])
 
     def _read_beam_orientations(self,dpath):
         """Read sampled LOS and component velocity data"""
@@ -66,6 +72,11 @@ class ScanningLidar(object):
         df['ori_x'] = df['ori_x'].apply(lambda x: float(x[1:])) # lstrip (
         df['ori_z'] = df['ori_z'].apply(lambda x: float(x[:-1])) # rstrip )
         self.beamOrientation = df.set_index(['time','beam'])
+        # calculate additional orientation quantities
+        self.beamOrientation['azimuth'], self.beamOrientation['elevation'] = \
+                self.calc_azi_elev(self.beamOrientation['ori_x'],
+                                   self.beamOrientation['ori_y'],
+                                   self.beamOrientation['ori_z'])
 
     def _read_velocities(self,dpath):
         """Read sampled LOS and component velocity data"""
@@ -91,5 +102,14 @@ class ScanningLidar(object):
             data[output] = data[output].stack(dropna=False)
         # form velocity dataframe
         self.vel = pd.concat([df for output,df in data.items()], axis=1)
+
+    def calc_azi_elev(self, orix, oriy, oriz):
+        """Calculate the azimuth and elevation given the orientation
+        vector components
+        """
+        azi = 180. + np.degrees(np.arctan2(-orix, -oriy))
+        dotprod = np.sqrt((orix**2 + oriy**2) / (orix**2 + oriy**2 + oriz**2))
+        elev = np.degrees(np.arccos(dotprod))
+        return azi, elev
 
 
