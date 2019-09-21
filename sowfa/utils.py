@@ -59,7 +59,6 @@ class InputFile(object):
                 print('PARSING',name,'FROM',line,'of TYPE',containertype)
             self._parse(name,line,containertype)
 
-    
     def __repr__(self):
         descstrs = [
             '{:s} : {:s}'.format(key,str(val))
@@ -67,8 +66,16 @@ class InputFile(object):
         ]
         return '\n'.join(descstrs)
 
-
     def _split_defs(self,txt):
+        """Splits blocks of text into lines in the following forms:
+            key value;
+            key (values...)
+            key {values...}
+            (values...)
+            ((values...) (values...))
+        where lists and dicts may be nested. The outlier case is the
+        (nested) list which takes on the key of its parent.
+        """
         names, lines, container = [], [], []
         while len(txt) > 0:
             if (txt[0] == '('):
@@ -129,8 +136,16 @@ class InputFile(object):
             txt = txt[idx+1:].strip()
         return zip(names, lines, container)
 
-
     def _parse(self,name,defn,containertype,parent=None):
+        """Parse values split up by _split_defs()
+
+        Casts to float and bool (the latter by checking against a list
+        of known true/false values, since bool(some_str) will return 
+        True if the string has a nonzero length) will be attempted.
+
+        If the value is a container (i.e., list or dict), then 
+        _split_defs() and _parse() will be called recursively.
+        """
         if self.DEBUG:
             print('----------- parsing block -----------')
             if parent is not None:
@@ -192,14 +207,17 @@ class InputFile(object):
                     and ('(' not in newdefn) and (')' not in newdefn):
                 # special treatment for lists
                 for val in newdefn.split():
-                    # call parse wihout a name (None for list) and without a
-                    # container type to indicate that a new value should be set
+                    # recursively call parse wihout a name (None for
+                    # list) and without a container type to indicate
+                    # that a new value should be set
                     self._parse(None,val,None,parent=newparent)
             else:
                 for newname,newdef,newcontainertype in self._split_defs(newdefn):
                     self._parse(newname,newdef,newcontainertype,parent=newparent)
 
-
+    """
+    dictionary-like functions
+    """
     def __getitem__(self, key):
         return self._properties[key]
 
