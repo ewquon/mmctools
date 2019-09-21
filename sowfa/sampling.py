@@ -24,13 +24,18 @@ class ScanningLidar(object):
     """Container for scanningLidar sampling output"""
     expected_outputs = ['uVel', 'vVel', 'wVel', 'losVel']
 
-    def __init__(self,dpath,sampling_definition=None,verbose=True):
+    def __init__(self,dpath,
+                 prefix='',
+                 sampling_definition=None,
+                 verbose=True):
         """Load postProcessing output
 
         Parameters
         ----------
         dpath : str
             Path to virtual lidar output, e.g., casedir/postProcessing/lidarname
+        prefix : str, optional
+            Default prefix that defines the saved csv files in dpath
         sampling_definition : str, optional
             Path to function object definition, e.g., casedir/system/sampling/lidardef,
             that contains an openfoam dictionary defining 'lidarname'
@@ -38,21 +43,24 @@ class ScanningLidar(object):
             beamDistribution (dictating sample ranges)
         """
         self.verbose = verbose
+        self.dpath = dpath
+        self.prefix = prefix
+        self.sampling_definition = sampling_definition
         self.name = os.path.split(dpath)[-1]
-        self._read_definition(sampling_definition)
-        self._read_beam_orientations(dpath)
-        self._read_velocities(dpath)
+        self._read_definition()
+        self._read_beam_orientations()
+        self._read_velocities()
 
-    def _read_definition(self,fpath):
+    def _read_definition(self):
         """Read sampling definition file"""
         self.properties = None
-        if fpath is None:
+        if self.sampling_definition is None:
             return
-        defs = InputFile(fpath)
+        defs = InputFile(self.sampling_definition)
         try:
             self.properties = defs[self.name]
         except KeyError:
-            print(self.name,'not defined in',fpath)
+            print(self.name,'not defined in',self.sampling_definition)
         else:
             # beamScanPattern.shape == (Nbeams, 4)
             # columns: time, ori_x, ori_y, ori_z
@@ -60,10 +68,22 @@ class ScanningLidar(object):
             self.azimuth0, self.elevation0 = self.calc_azi_elev(
                     scanpattern[:,1], scanpattern[:,2], scanpattern[:,3])
 
-    def _read_beam_orientations(self,dpath):
+    def _read_beam_orientations(self):
         """Read sampled LOS and component velocity data"""
-        # read all velocity data
-        df = read_date_dirs(dpath, expected_date_format=None,
+        # attempt to read existing data
+        inputfile = os.path.join(self.dpath,self.prefix+'beamOrientation.csv.gz')
+        try:
+            self.beamOrientation = pd.read_csv(inputfile)
+        except IOError:
+            pass
+        else:
+            self.beamOrientation.set_index(['time','beam'],inplace=True)
+            if self.verbose:
+                print('Loaded beam orientations from',inputfile)
+            return
+        # otherwise, read all beamOrientation data from dpath
+        df = read_date_dirs(self.dpath,
+                            expected_date_format=None,
                             file_filter='beamOrientation',
                             verbose=self.verbose,
                             # read_csv() options:
@@ -79,12 +99,24 @@ class ScanningLidar(object):
                                    self.beamOrientation['ori_y'],
                                    self.beamOrientation['ori_z'])
 
-    def _read_velocities(self,dpath):
+    def _read_velocities(self):
         """Read sampled LOS and component velocity data"""
-        # read all velocity data
+        # attempt to read existing data
+        inputfile = os.path.join(self.dpath,self.prefix+'velocities.csv.gz')
+        try:
+            self.vel = pd.read_csv(inputfile)
+        except IOError:
+            pass
+        else:
+            self.vel.set_index(['time','beam','level'],inplace=True)
+            if self.verbose:
+                print('Loaded velocities from',inputfile)
+            return
+        # otherwise, read all velocity data from dpath
         data = {
             output:
-            read_date_dirs(dpath, expected_date_format=None,
+            read_date_dirs(self.dpath,
+                           expected_date_format=None,
                            file_filter=output,
                            reader=textreader,
                            index_names=['time','beam'],
@@ -103,6 +135,32 @@ class ScanningLidar(object):
             data[output] = data[output].stack(dropna=False)
         # form velocity dataframe
         self.vel = pd.concat([df for output,df in data.items()], axis=1)
+
+    def save(self, dpath=None, prefix=None):
+        """Save beam orientation and velocity dataframes
+
+        Parameters
+        ----------
+        dpath : str, optional
+            Location to save files; default is the same location as the
+            OpenFOAM output, e.g., casedir/postProcessing/lidarname/*.csv.gz
+        prefix : str, optional
+            Prefix for files, i.e., ${dpath}/${prefix}beamOrientation.csv.gz
+            and ${dpath}/${prefix}velocities.csv.gz; default is to have
+            no prefix
+        """
+        if dpath is None:
+            dpath = self.dpath
+        if prefix is None:
+            prefix = self.prefix
+        oriout = os.path.join(dpath, prefix+'beamOrientation.csv.gz')
+        self.beamOrientation.to_csv(oriout)
+        if self.verbose:
+            print('Saved',oriout)
+        velout = os.path.join(dpath, prefix+'velocities.csv.gz')
+        self.vel.to_csv(velout)
+        if self.verbose:
+            print('Saved',velout)
 
     def calc_azi_elev(self, orix, oriy, oriz):
         """Calculate the azimuth and elevation given the orientation
