@@ -69,7 +69,9 @@ class ScanningLidar(object):
                     scanpattern[:,1], scanpattern[:,2], scanpattern[:,3])
 
     def _read_beam_orientations(self):
-        """Read sampled LOS and component velocity data"""
+        """Read beam orientations from:
+            casedir/postProcessing/lidarname/*/beamOrientation
+        """
         # attempt to read existing data
         inputfile = os.path.join(self.dpath,self.prefix+'beamOrientation.csv.gz')
         try:
@@ -100,7 +102,9 @@ class ScanningLidar(object):
                                    self.beamOrientation['ori_z'])
 
     def _read_velocities(self):
-        """Read sampled LOS and component velocity data"""
+        """Read sampled LOS and component velocity data from:
+            casedir/postProcessing/lidarname/*/*Vel
+        """
         # attempt to read existing data
         inputfile = os.path.join(self.dpath,self.prefix+'velocities.csv.gz')
         try:
@@ -135,6 +139,38 @@ class ScanningLidar(object):
             data[output] = data[output].stack(dropna=False)
         # form velocity dataframe
         self.vel = pd.concat([df for output,df in data.items()], axis=1)
+
+    def assign_beam_names(self, names=None):
+        """Assign names to beams. If names is not specified, figure out
+        names from the azimuth and elevation.
+
+        This function updates the index levels of the beamOrientation
+        and vel dataframes, and converts the azimuth0 and elevation0
+        attributes from lists dictionaries.
+        """
+        if isinstance(self.azimuth0,dict) or isinstance(self.elevation0,dict):
+            print('beam names already assigned')
+            return
+        if names is None:
+            namemap = {0: 'N', 90: 'E', 180: 'S', 270: 'W'}
+            names = []
+            for i,(azi,elev) in enumerate(zip(self.azimuth0, self.elevation0)):
+                if elev == 90:
+                    assert azi == 0
+                    names.append('vert')
+                else:
+                    names.append(namemap.pop(azi))
+            assert (len(namemap) == 0)
+        for i,(name,azi,elev) in enumerate(zip(names, self.azimuth0, self.elevation0)):
+            print(name,': azi=',azi,'elev=',elev)
+        self.beamOrientation.index.set_levels(names, level='beam', inplace=True) 
+        self.vel.index.set_levels(names, level='beam', inplace=True) 
+        azidict, elevdict = {}, {}
+        for i,name in enumerate(names):
+            azidict[name] = self.azimuth0[i]
+            elevdict[name] = self.elevation0[i]
+        self.azimuth0 = azidict
+        self.elevation0 = elevdict
 
     def save(self, dpath=None, prefix=None):
         """Save beam orientation and velocity dataframes
