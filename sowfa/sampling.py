@@ -6,11 +6,25 @@ from scipy.interpolate import interp1d
 from ..dataloaders import read_date_dirs
 from .utils import InputFile
 
-def textreader(fpath, index_names=None, verbose=True):
+def textreader(fpath, index_names=None, uniform_time=False, time_column=0,
+               verbose=True):
     """Wrapper around pd.read_csv() for SOWFA text output. This is
     essentially np.loadtxt(), but read_csv() is significantly faster.
+
+    Parameters
+    ----------
+    index_names : str or list, optional
+        Name(s) of index column(s)
+    uniform_time : bool, optional
+        If True, force all times values in time_column to equal the
+        initial value
+    time_column : int, optional
+        Zero-based column number identifying time data, used only if
+        uniform_time is True
     """
     df = pd.read_csv(fpath, delim_whitespace=True, header=None, comment='#')
+    if uniform_time:
+        df[time_column] = df[time_column][0]
     if index_names is not None:
         if isinstance(index_names,str):
             index_names = [index_names]
@@ -122,9 +136,12 @@ class ScanningLidar(object):
             read_date_dirs(self.dpath,
                            expected_date_format=None,
                            file_filter=output,
+                           verbose=self.verbose,
                            reader=textreader,
+                           # textreader options:
                            index_names=['time','beam'],
-                           verbose=self.verbose)
+                           uniform_time=True,
+                          )
             for output in self.expected_outputs
         }
         # setup columns for multiindexing
