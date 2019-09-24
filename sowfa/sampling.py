@@ -149,6 +149,7 @@ class ScanningLidar(object):
             try:
                 levels = self.properties['beamDistribution']
             except (TypeError, KeyError):
+                # actual ranges not available
                 levels = np.arange(len(data[output].columns))
             columns = pd.MultiIndex.from_product(([output],levels),
                                                  names=[None, 'level'])
@@ -193,32 +194,6 @@ class ScanningLidar(object):
             elevdict[name] = self.elevation0[i]
         self.azimuth0 = azidict
         self.elevation0 = elevdict
-
-    def save(self, dpath=None, prefix=None):
-        """Save beam orientation and velocity dataframes
-
-        Parameters
-        ----------
-        dpath : str, optional
-            Location to save files; default is the same location as the
-            OpenFOAM output, e.g., casedir/postProcessing/lidarname/*.csv.gz
-        prefix : str, optional
-            Prefix for files, i.e., ${dpath}/${prefix}beamOrientation.csv.gz
-            and ${dpath}/${prefix}velocities.csv.gz; default is to have
-            no prefix
-        """
-        if dpath is None:
-            dpath = self.dpath
-        if prefix is None:
-            prefix = self.prefix
-        oriout = os.path.join(dpath, prefix+'beamOrientation.csv.gz')
-        self.beamOrientation.to_csv(oriout)
-        if self.verbose:
-            print('Saved',oriout)
-        velout = os.path.join(dpath, prefix+'velocities.csv.gz')
-        self.vel.to_csv(velout)
-        if self.verbose:
-            print('Saved',velout)
 
     def calc_azi_elev(self, orix, oriy, oriz):
         """Calculate the azimuth and elevation given the orientation
@@ -274,4 +249,30 @@ class ScanningLidar(object):
         # recreate multiindexed dataframe with same form
         df = unstacked2_interp.stack(level=['beam','height'])
         return df.reorder_levels(order=['time','beam','height']).sort_index()
+
+    def save(self, dpath=None, prefix=None):
+        """Save beam orientation and velocity dataframes
+
+        Parameters
+        ----------
+        dpath : str, optional
+            Location to save files; default is the same location as the
+            OpenFOAM output, e.g., casedir/postProcessing/lidarname/*.csv.gz
+        prefix : str, optional
+            Prefix for files, i.e., ${dpath}/${prefix}beamOrientation.csv.gz
+            and ${dpath}/${prefix}velocities.csv.gz; default is to have
+            no prefix
+        """
+        if dpath is None:
+            dpath = self.dpath
+        if prefix is None:
+            prefix = self.prefix
+        oriout = os.path.join(dpath, prefix+'beamOrientation.csv.gz')
+        self.beamOrientation.to_csv(oriout)
+        if self.verbose:
+            print('Saved',oriout)
+        velout = os.path.join(dpath, prefix+'velocities.csv.gz')
+        self.vel.to_csv(velout)
+        if self.verbose:
+            print('Saved',velout)
 
