@@ -139,6 +139,11 @@ class ScanningLidar(object):
             data[output] = data[output].stack(dropna=False)
         # form velocity dataframe
         self.vel = pd.concat([df for output,df in data.items()], axis=1)
+        newnames = {
+            name: name[:-3]
+            for name in self.vel.columns if name.lower().endswith('vel')
+        }
+        self.vel.rename(columns=newnames, inplace=True)
 
     def assign_beam_names(self, names=None):
         """Assign names to beams. If names is not specified, figure out
