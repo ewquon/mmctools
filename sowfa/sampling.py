@@ -42,6 +42,7 @@ class ScanningLidar(object):
     def __init__(self,dpath,
                  prefix='',
                  sampling_definition=None,
+                 beam_names=None,
                  verbose=True):
         """Load postProcessing output
 
@@ -56,6 +57,10 @@ class ScanningLidar(object):
             that contains an openfoam dictionary defining 'lidarname'
             If read, provides additional lidar information such as the
             beamDistribution (dictating sample ranges)
+        beam_names : list, optional
+            Passed to _assign_beam_names() to update 'beam' index and
+            convert the azimuth0 and elevation0 attributes from lists
+            to dictionaries.
         """
         self.verbose = verbose
         self.dpath = dpath
@@ -65,6 +70,7 @@ class ScanningLidar(object):
         self._read_definition()
         self._read_beam_orientations()
         self._read_velocities()
+        self._assign_beam_names(beam_names)
 
     def _read_definition(self):
         """Read sampling definition file"""
@@ -164,7 +170,7 @@ class ScanningLidar(object):
         }
         self.vel.rename(columns=newnames, inplace=True)
 
-    def assign_beam_names(self, names=None):
+    def _assign_beam_names(self, names=None):
         """Assign names to beams. If names is not specified, figure out
         names from the azimuth and elevation.
 
@@ -176,6 +182,8 @@ class ScanningLidar(object):
             print('beam names already assigned')
             return
         if names is None:
+            # try to automatically determine beam names from cardinal
+            # directions
             namemap = {0: 'N', 90: 'E', 180: 'S', 270: 'W'}
             names = []
             for i,(azi,elev) in enumerate(zip(self.azimuth0, self.elevation0)):
@@ -187,8 +195,13 @@ class ScanningLidar(object):
             assert (len(namemap) == 0)
         for i,(name,azi,elev) in enumerate(zip(names, self.azimuth0, self.elevation0)):
             print(name,': azi=',azi,'elev=',elev)
-        self.beamOrientation.index.set_levels(names, level='beam', inplace=True) 
-        self.vel.index.set_levels(names, level='beam', inplace=True) 
+        # update multiindex levels only if they're different, to
+        # eliminate the possibility of accidentally overwriting the
+        # beam names and, consequently, reordering the beams
+        if not set(names) == set(self.beamOrientation.index.unique(level='beam')):
+            self.beamOrientation.index.set_levels(names, level='beam', inplace=True) 
+        if not set(names) == set(self.vel.index.unique(level='beam')):
+            self.vel.index.set_levels(names, level='beam', inplace=True) 
         azidict, elevdict = {}, {}
         for i,name in enumerate(names):
             azidict[name] = self.azimuth0[i]
