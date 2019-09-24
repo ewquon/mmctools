@@ -218,8 +218,15 @@ class ScanningLidar(object):
         elev = np.degrees(np.arccos(dotprod))
         return azi, elev
 
-    def calc_retrieval(self):
+    def calc_retrieval(self,heights=None):
         """Calculate retrieved horizontal velocity components.
+
+        Parameters
+        ----------
+        heights : list or numpy.ndarray, optional
+            If not None, then interpolate from the sampled ranges to
+            these vertical height levels; the original 'range' index
+            will be replaced by a 'height' index
         """
         vlos = self.vel['los']
         # get beam angles
@@ -231,17 +238,34 @@ class ScanningLidar(object):
         ur = vlos.xs('E',level='beam') # keep timestamps from first beam
         ur -= vlos.xs('W',level='beam').values
         ur /= (2 * np.sin(tilt_EW))
-        ur.name = 'ur'
         # assume north/south beams are aligned with the y axis
         vr = vlos.xs('N',level='beam') # keep timestamps from first beam
         vr -= vlos.xs('S',level='beam').values
         vr /= (2 * np.sin(tilt_NS))
-        vr.name = 'vr'
+        # interpolate to reference heights
+        if heights is not None:
+            ur = self._range_to_height(ur, heights, tilt_EW)
+            vr = self._range_to_height(vr, heights, tilt_NS)
         # combine velocity components in dataframe
+        ur.name = 'ur'
+        vr.name = 'vr'
         retr = pd.concat((ur,vr), axis=1)
         retr['wspd'], retr['wdir'] = calc_wind(retr, u='ur', v='vr')
-        # TODO: interpolate to reference heights
         return retr
+
+    def _range_to_height(self, df, heights=[], tilt_rad=None):
+        """Interpolate from range levels to heights"""
+        from scipy.interpolate import interp1d
+        unstacked = df.unstack(level='time')
+        if unstacked.index.name == 'range':
+            unstacked.set_index(unstacked.index * np.cos(tilt_rad), inplace=True)
+            unstacked.index.name = 'height'
+        interpfun = interp1d(unstacked.index, unstacked, axis=0)
+        for hgt in heights:
+            unstacked.loc[hgt] = interpfun(hgt)
+        unstacked = unstacked.loc[heights]
+        return unstacked.stack().reorder_levels(order=['time','height']).sort_index()
+
 
     def regularize(self, times, heights,
                    time_interp='linear', height_interp='linear'):
