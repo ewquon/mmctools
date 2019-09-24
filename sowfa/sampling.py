@@ -127,7 +127,7 @@ class ScanningLidar(object):
         except IOError:
             pass
         else:
-            self.vel.set_index(['time','beam','level'],inplace=True)
+            self.vel.set_index(['time','beam','range'],inplace=True)
             if self.verbose:
                 print('Loaded velocities from',inputfile)
             return
@@ -153,7 +153,7 @@ class ScanningLidar(object):
                 # actual ranges not available
                 levels = np.arange(len(data[output].columns))
             columns = pd.MultiIndex.from_product(([output],levels),
-                                                 names=[None, 'level'])
+                                                 names=[None, 'range'])
             data[output].columns = columns
             data[output] = data[output].stack(dropna=False)
         # form velocity dataframe
@@ -237,15 +237,15 @@ class ScanningLidar(object):
         assumed to be constant in time. Height interpolation is
         performed first, then time interpolation.
 
-        Returns a new dataframe with 'height' instead of 'level' index.
+        Returns a new dataframe with 'height' instead of 'range' index.
         """
         # update levels with beam-dependent heights
         # - work with a copy
-        df = self.vel.reset_index(level='level')
+        df = self.vel.reset_index(level='range')
         # - beam projection (assume constant elevation here)
         for beam,elev in enumerate(self.elevation0):
-            df.loc[(slice(None),beam), 'level'] *= np.cos(np.radians(90. - elev))
-        df.rename(columns={'level':'height'}, inplace=True)
+            df.loc[(slice(None),beam), 'range'] *= np.cos(np.radians(90. - elev))
+        df.rename(columns={'range':'height'}, inplace=True)
         df.set_index('height', append=True, inplace=True)
         # unstack time/beam indices to work with height index first
         unstacked = df.unstack(level=[0,1])
