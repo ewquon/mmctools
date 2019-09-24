@@ -5,6 +5,7 @@ from scipy.interpolate import interp1d
 
 from ..dataloaders import read_date_dirs
 from .utils import InputFile
+from ..helper_functions import calc_wind
 
 def textreader(fpath, index_names=None, uniform_time=False, time_column=0,
                verbose=True):
@@ -203,6 +204,31 @@ class ScanningLidar(object):
         dotprod = np.sqrt((orix**2 + oriy**2) / (orix**2 + oriy**2 + oriz**2))
         elev = np.degrees(np.arccos(dotprod))
         return azi, elev
+
+    def calc_retrieval(self):
+        """Calculate retrieved horizontal velocity components.
+        """
+        vlos = self.vel['los']
+        # get beam angles
+        assert (self.elevation0['N'] == self.elevation0['S'])
+        assert (self.elevation0['E'] == self.elevation0['W'])
+        tilt_NS = np.radians(90. - self.elevation0['N'])
+        tilt_EW = np.radians(90. - self.elevation0['E'])
+        # assume east/west beams are aligned with the x axis
+        ur = vlos.xs('E',level='beam') # keep timestamps from first beam
+        ur -= vlos.xs('W',level='beam').values
+        ur /= (2 * np.sin(tilt_EW))
+        ur.name = 'ur'
+        # assume north/south beams are aligned with the y axis
+        vr = vlos.xs('N',level='beam') # keep timestamps from first beam
+        vr -= vlos.xs('S',level='beam').values
+        vr /= (2 * np.sin(tilt_NS))
+        vr.name = 'vr'
+        # combine velocity components in dataframe
+        retr = pd.concat((ur,vr), axis=1)
+        retr['wspd'], retr['wdir'] = calc_wind(retr, u='ur', v='vr')
+        # TODO: interpolate to reference heights
+        return retr
 
     def regularize(self, times, heights,
                    time_interp='linear', height_interp='linear'):
