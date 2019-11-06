@@ -79,7 +79,6 @@ data_records = OrderedDict([
     ('Thickness QC', 'I7'),
 ])
 
-
 def boolean(s):
     """Cast boolean string to python bool"""
     s = s.strip().lower()
@@ -93,6 +92,8 @@ class Report(object):
     """Generate 'report' file with observations for use in WRF data
     assimilation or ovservational nudging
     """
+    nan_value = -888888
+
     def __init__(self,fname=None):
         self.obs = {}
         self.header_dtypes = {}
@@ -181,9 +182,13 @@ class Report(object):
             fieldlen = self.header_fieldlen[key]
             val = line[:fieldlen].strip()
             try:
-                header[key] = dtype(val)
+                val = dtype(val)
             except ValueError:
-                print(key,dtype,val)
+                print('Error parsing',key,dtype,val)
+            else:
+                if val == self.nan_value:
+                    val = np.nan
+                header[key] = val
             #print(key, ':', line[:fieldlen],dtype(val))
             line = line[fieldlen:]
         return header
@@ -199,9 +204,13 @@ class Report(object):
                 fieldlen = self.data_fieldlen[key]
                 val = line[:fieldlen].strip()
                 try:
-                    row[key] = dtype(val)
+                    val = dtype(val)
                 except ValueError:
-                    print(key,dtype,val)
+                    print('Error parsing',key,dtype,val)
+                else:
+                    if val == self.nan_value:
+                        val = np.nan
+                    row[key] = val
                 line = line[fieldlen:]
             if row[firstcol] == ending_record_value:
                 break
