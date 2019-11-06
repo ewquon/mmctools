@@ -1,6 +1,7 @@
 """
 Helper functions for processing observational data in LITTLE_R observation format
 """
+import os
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
@@ -220,7 +221,7 @@ class Report(object):
         assert (len(line.split()) == 3)
         return pd.DataFrame(data,columns=self.data_dtypes.keys())
 
-    def to_wrf_nudging(self,fname,obs=None):
+    def to_wrf_nudging(self,fname,overwrite=False,obs_id=None):
         """Output WRF nudging file
 
         If the obs ID is not provided, then there should only be one
@@ -232,9 +233,20 @@ class Report(object):
         if np.any(pd.isna(self.df['Pressure (Pa)'])):
             print('Need to estimate pressure values for nudging to work')
             return
-        if obs is None:
+        if os.path.isfile(fname) and (not overwrite):
+            print('Output file already exists')
+            return
+        if obs_id is None:
             assert (len(self.df['ID'].unique()) == 1)
             df = self.df.drop(columns=['ID'])
+            obs_id = self.df.iloc[0]['ID']
         else:
-            df = self.df.loc[self.df['ID'] == obs].drop(columns=['ID'])
+            df = self.df.loc[self.df['ID'] == obs_id].drop(columns=['ID'])
+        df = df.fillna(self.nan_value)
+        meta = self.obs[obs_id]
+        with open(fname,'w') as f:
+            for time in df.index.unique():
+                f.write(time.strftime(' %Y%m%d%H%M%S\n'))
+                f.write('{:9.2f}{:9.2f}\n'.format(meta['Latitude'], meta['Longitude']))
+                f.write('  {:5s}   {:75s}\n'.format(meta['ID'], meta['Name']))
 
