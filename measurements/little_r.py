@@ -54,6 +54,29 @@ header_records = OrderedDict([
 #    ('Precipitable water QC', 'I7'),
 ])
 
+data_records = OrderedDict([
+    ('Pressure (Pa)', 'F13.5'),
+    ('Pressure QC', 'I7'),
+    ('Height (m)', 'F13.5'),
+    ('Height QC', 'I7'),
+    ('Temperature (K)', 'F13.5'),
+    ('Temperature QC', 'I7'),
+    ('Dew point (K)', 'F13.5'),
+    ('Dew point QC', 'I7'),
+    ('Wind speed (m/s)', 'F13.5'),
+    ('Wind speed QC', 'I7'),
+    ('Wind direction (deg)', 'F13.5'),
+    ('Wind direction QC', 'I7'),
+    ('Wind U (m/s)', 'F13.5'),
+    ('Wind U QC', 'I7'),
+    ('Wind V (m/s)', 'F13.5'),
+    ('Wind V QC', 'I7'),
+    ('Relative humidity (%)', 'F13.5'),
+    ('Relative humidity QC', 'I7'),
+    ('Thickness (m)', 'F13.5'),
+    ('Thickness QC', 'I7'),
+])
+
 
 def boolean(s):
     """Cast boolean string to python bool"""
@@ -73,6 +96,10 @@ class Report(object):
         self.header_dtypes = {}
         self.header_fieldlen = {}
         self.header_fmt = ''
+        self.data_dtypes = {}
+        self.data_fieldlen = {}
+        self.data_fmt = ''
+        # set up header fields
         for field,rec in header_records.items():
             dtype = rec[0].lower()
             if dtype == 'a':
@@ -97,6 +124,31 @@ class Report(object):
                 fieldlen = 10
             self.header_fieldlen[field] = fieldlen
             self.header_fmt += '{:'+rec[1:]+dtype+'}'
+        # set up data fields
+        for field,rec in data_records.items():
+            dtype = rec[0].lower()
+            if dtype == 'a':
+                # string
+                dtype = dtype.replace('a','s')
+                self.data_dtypes[field] = str
+            elif dtype == 'l':
+                # boolean represented as T or F
+                dtype = dtype.replace('l','s')
+                self.data_dtypes[field] = boolean
+            elif dtype == 'i':
+                # integer
+                dtype = dtype.replace('i','d')
+                self.data_dtypes[field] = int
+            else:
+                # default to float
+                self.data_dtypes[field] = float
+            try:
+                fieldlen = int(rec[1:].split('.')[0])
+            except ValueError:
+                # default field length (e.g., for logical/boolean)
+                fieldlen = 10
+            self.data_fieldlen[field] = fieldlen
+            self.data_fmt += '{:'+rec[1:]+dtype+'}'
         # load file
         if fname is not None:
             self.read(fname)
@@ -105,27 +157,47 @@ class Report(object):
         """Read existing observational data"""
         with open(fname,'r') as f:
             hdr = self._read_header(f)
-#            while hdr is not None:
-#                data = self._read_data(f)
-#                hdr = self._read_header(f)
+            while hdr is not None:
+                data = self._read_data(f)
+                hdr = self._read_header(f)
 
     def _read_header(self,f):
         line = f.readline()
         if line == '':
             return None
-        data = []
+        header = {}
         for key in self.header_dtypes.keys():
             dtype = self.header_dtypes[key]
             fieldlen = self.header_fieldlen[key]
             val = line[:fieldlen].strip()
             try:
-                data.append(dtype(val))
+                header[key] = dtype(val)
             except ValueError:
                 print(key,dtype,val)
             #print(key, ':', line[:fieldlen],dtype(val))
             line = line[fieldlen:]
+        return header
+
+    def _read_data(self,f,ending_record_value=-777777):
+        data = []
+        firstcol = next(iter(self.data_dtypes))
+        while True:
+            row = {}
+            line = f.readline()
+            for key in self.data_dtypes.keys():
+                dtype = self.data_dtypes[key]
+                fieldlen = self.data_fieldlen[key]
+                val = line[:fieldlen].strip()
+                try:
+                    row[key] = dtype(val)
+                except ValueError:
+                    print(key,dtype,val)
+                line = line[fieldlen:]
+            if row[firstcol] == ending_record_value:
+                break
+            else:
+                data.append(row)
+        line = f.readline() # tail integers (not used)
+        assert (len(line.split()) == 3)
         return data
 
-#    def _read_data(self,f):
-#        line = f.readline().split()
-#        while not line[0] ==
