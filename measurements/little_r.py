@@ -229,6 +229,9 @@ class Report(object):
         if not hasattr(self,'df'):
             print('Obs have not been read')
             return
+        if np.any(pd.isna(self.df['Pressure (Pa)'])):
+            print('Need to estimate pressure values for nudging to work')
+            return
         if obs is None:
             assert (len(self.df['ID'].unique()) == 1)
             df = self.df.drop(columns=['ID'])
