@@ -13,7 +13,7 @@ header_records = OrderedDict([
     ('Longitude', 'F20.5'),
     ('ID', 'A40'),
     ('Name', 'A40'),
-    ('Platform (FM‑Code)note', 'A40'),
+    ('FM-Code', 'A40'),
     ('Source', 'A40'),
     ('Elevation', 'F20.5'),
     ('Valid fields', 'I10'),
@@ -242,11 +242,30 @@ class Report(object):
             obs_id = self.df.iloc[0]['ID']
         else:
             df = self.df.loc[self.df['ID'] == obs_id].drop(columns=['ID'])
+        # fill in expected missing value
         df = df.fillna(self.nan_value)
+        # get metadata, truncate strings
         meta = self.obs[obs_id]
+        meta['ID'] = meta['ID'][:5]
+        meta['Name'] = meta['Name'][:75]
+        meta['FM-Code'] = meta['FM-Code'][:18]
+        meta['Source'] = meta['Source'][:16]
+        meta['Is sounding?'] = str(meta['Is sounding?'])[:1]
+        meta['Is bogus?'] = str(meta['Is bogus?'])[:1]
+        # write out nudging file
         with open(fname,'w') as f:
             for time in df.index.unique():
+                dftime = df.loc[df.index == time]
+                fmtstr = len(dftime.columns) * ' {:11.3f}'
                 f.write(time.strftime(' %Y%m%d%H%M%S\n'))
-                f.write('{:9.2f}{:9.2f}\n'.format(meta['Latitude'], meta['Longitude']))
-                f.write('  {:5s}   {:75s}\n'.format(meta['ID'], meta['Name']))
+                f.write('{Latitude:9.2f}{Longitude:9.2f}\n'.format(**meta))
+                f.write('  {ID:5s}   {Name:75s}\n'.format(**meta))
+                nlev = 1 if not meta['Is sounding?'] else len(dftime)
+                line4 = '  {FM-Code:18s}{Source:16s}  {Elevation:8g}' \
+                      + '     {Is sounding?:1s}' \
+                      + '     {Is bogus?:1s}' \
+                      + '   {Nlevels:4d}\n'
+                f.write(line4.format(Nlevels=nlev,**meta))
+                for _,row in dftime.iterrows():
+                    f.write(fmtstr.format(*row.values)+'\n')
 
