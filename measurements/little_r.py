@@ -164,8 +164,12 @@ class Report(object):
                 self.obs[hdr['ID']] = hdr
             while hdr is not None:
                 data = self._read_data(f)
+                tstamp = pd.to_datetime(hdr['Date'], format='%Y%m%d%H%M%S')
+                data['datetime'] = tstamp
+                data['ID'] = hdr['ID']
                 datalist.append(data)
                 hdr = self._read_header(f)
+        self.df = pd.concat(datalist).set_index('datetime')
 
     def _read_header(self,f):
         line = f.readline()
