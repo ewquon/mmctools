@@ -2,6 +2,8 @@
 Helper functions for processing observational data in LITTLE_R observation format
 """
 from collections import OrderedDict
+import numpy as np
+import pandas as pd
 
 # from table in from http://www2.mmm.ucar.edu/wrf/users/wrfda/OnlineTutorial/Help/littler.html
 # - can modify prior to instantiating Report object
@@ -92,7 +94,7 @@ class Report(object):
     assimilation or ovservational nudging
     """
     def __init__(self,fname=None):
-        # create header format string
+        self.obs = {}
         self.header_dtypes = {}
         self.header_fieldlen = {}
         self.header_fmt = ''
@@ -155,10 +157,14 @@ class Report(object):
 
     def read(self,fname):
         """Read existing observational data"""
+        datalist = []
         with open(fname,'r') as f:
             hdr = self._read_header(f)
+            if hdr['ID'] not in self.obs.keys():
+                self.obs[hdr['ID']] = hdr
             while hdr is not None:
                 data = self._read_data(f)
+                datalist.append(data)
                 hdr = self._read_header(f)
 
     def _read_header(self,f):
@@ -199,5 +205,5 @@ class Report(object):
                 data.append(row)
         line = f.readline() # tail integers (not used)
         assert (len(line.split()) == 3)
-        return data
+        return pd.DataFrame(data,columns=self.data_dtypes.keys())
 
