@@ -220,3 +220,18 @@ class Report(object):
         assert (len(line.split()) == 3)
         return pd.DataFrame(data,columns=self.data_dtypes.keys())
 
+    def to_wrf_nudging(self,fname,obs=None):
+        """Output WRF nudging file
+
+        If the obs ID is not provided, then there should only be one
+        observational dataset in the dataframe
+        """
+        if not hasattr(self,'df'):
+            print('Obs have not been read')
+            return
+        if obs is None:
+            assert (len(self.df['ID'].unique()) == 1)
+            df = self.df.drop(columns=['ID'])
+        else:
+            df = self.df.loc[self.df['ID'] == obs].drop(columns=['ID'])
+
