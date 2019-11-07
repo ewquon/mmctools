@@ -75,9 +75,9 @@ data_records = OrderedDict([
     ('Wind V (m/s)', 'F13.5'),
     ('Wind V (m/s) QC', 'I7'),
     ('Relative humidity (%)', 'F13.5'),
-    ('Relative humidity QC', 'I7'),
+    ('Relative humidity (%) QC', 'I7'),
     ('Thickness (m)', 'F13.5'),
-    ('Thickness QC', 'I7'),
+    ('Thickness (m) QC', 'I7'),
 ])
 
 def boolean(s):
@@ -258,6 +258,13 @@ class Report(object):
         meta['Source'] = meta['Source'][:16]
         meta['Is sounding?'] = str(meta['Is sounding?'])[:1]
         meta['Is bogus?'] = str(meta['Is bogus?'])[:1]
+        # select output fields
+        outputs = []
+        for output in ['Pressure (Pa)','Height (m)','Temperature (K)',
+                       'Wind U (m/s)', 'Wind V (m/s)','Relative humidity (%)']:
+            outputs.append(output)
+            outputs.append(output+' QC')
+        df = df[outputs]
         # write out nudging file
         with open(fname,'w') as f:
             for time in df.index.unique():
