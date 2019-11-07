@@ -59,21 +59,21 @@ header_records = OrderedDict([
 
 data_records = OrderedDict([
     ('Pressure (Pa)', 'F13.5'),
-    ('Pressure QC', 'I7'),
+    ('Pressure (Pa) QC', 'I7'),
     ('Height (m)', 'F13.5'),
-    ('Height QC', 'I7'),
+    ('Height (m) QC', 'I7'),
     ('Temperature (K)', 'F13.5'),
-    ('Temperature QC', 'I7'),
+    ('Temperature (K) QC', 'I7'),
     ('Dew point (K)', 'F13.5'),
-    ('Dew point QC', 'I7'),
+    ('Dew point (K) QC', 'I7'),
     ('Wind speed (m/s)', 'F13.5'),
-    ('Wind speed QC', 'I7'),
+    ('Wind speed (m/s) QC', 'I7'),
     ('Wind direction (deg)', 'F13.5'),
-    ('Wind direction QC', 'I7'),
+    ('Wind direction (deg) QC', 'I7'),
     ('Wind U (m/s)', 'F13.5'),
-    ('Wind U QC', 'I7'),
+    ('Wind U (m/s) QC', 'I7'),
     ('Wind V (m/s)', 'F13.5'),
-    ('Wind V QC', 'I7'),
+    ('Wind V (m/s) QC', 'I7'),
     ('Relative humidity (%)', 'F13.5'),
     ('Relative humidity QC', 'I7'),
     ('Thickness (m)', 'F13.5'),
@@ -242,8 +242,14 @@ class Report(object):
             obs_id = self.df.iloc[0]['ID']
         else:
             df = self.df.loc[self.df['ID'] == obs_id].drop(columns=['ID'])
-        # fill in expected missing value
-        df = df.fillna(self.nan_value)
+        # fill in expected missing values
+        orig_columns = df.columns
+        for col in df.columns:
+            if not col.endswith('QC'):
+                # if the data values are missing, set associated QC
+                # values to missing as well
+                df.loc[pd.isna(df[col]), col+' QC'] = np.nan
+        df = df.fillna(self.nan_value)[orig_columns] # preserve order
         # get metadata, truncate strings
         meta = self.obs[obs_id]
         meta['ID'] = meta['ID'][:5]
@@ -258,8 +264,8 @@ class Report(object):
                 dftime = df.loc[df.index == time]
                 fmtstr = len(dftime.columns) * ' {:11.3f}'
                 f.write(time.strftime(' %Y%m%d%H%M%S\n'))
-                f.write('{Latitude:9.2f}{Longitude:9.2f}\n'.format(**meta))
-                f.write('  {ID:5s}   {Name:75s}\n'.format(**meta))
+                f.write('{Latitude:9.2f} {Longitude:9.2f}\n'.format(**meta))
+                f.write('  {ID:>5s}   {Name:>75s}\n'.format(**meta))
                 nlev = 1 if not meta['Is sounding?'] else len(dftime)
                 line4 = '  {FM-Code:18s}{Source:16s}  {Elevation:8g}' \
                       + '     {Is sounding?:1s}' \
