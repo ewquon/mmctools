@@ -107,6 +107,7 @@ class Report(object):
     nan_value = -888888
 
     def __init__(self,fname=None):
+        self.df = None
         self.obs = {}
         self.header_dtypes = {}
         self.header_fieldlen = {}
@@ -174,6 +175,21 @@ class Report(object):
         # load file
         if fname is not None:
             self.read(fname)
+    
+    def init(self,**defaults):
+        """Create dataframe, if manually creating a data report"""
+        for field,default in defaults.items():
+            self.header_defaults[field] = default
+        self.df = pd.DataFrame()
+
+    def add(self,datetime,verbose=True,**headerfields):
+        """Add observation at specified time"""
+        assert (self.df is not None), \
+            print('Obs report has not been initialized; call init()')
+        header = self.header_defaults.copy()
+        for field,val in headerfields.items():
+            header[field] = val
+        
 
     def read(self,fname):
         """Read existing observational data"""
@@ -238,6 +254,11 @@ class Report(object):
         line = f.readline() # tail integers (not used)
         assert (len(line.split()) == 3)
         return pd.DataFrame(data,columns=self.data_dtypes.keys())
+
+    def to_little_r(self,fname,overwrite=False):
+        """Output observational report in little_r format"""
+        assert (self.df is not None), \
+            print('Obs report has not been created or read')
 
     def to_wrf_nudging(self,fname,overwrite=False,obs_id=None):
         """Output WRF nudging file
