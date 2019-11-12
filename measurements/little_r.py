@@ -16,19 +16,19 @@ header_records = OrderedDict([
     ('FM-Code', 'A40'),
     ('Source', 'A40'),
     ('Elevation', 'F20.5'),
-    ('Valid fields', 'I10'),
-    ('Num. errors', 'I10'),
-    ('Num. warnings', 'I10'),
-    ('Sequence number', 'I10'),
-    ('Num. duplicates', 'I10'),
+    ('Valid fields', 'I10'), # not used
+    ('Num. errors', 'I10'), # not used
+    ('Num. warnings', 'I10'), # not used
+    ('Sequence number', 'I10'), # only for tiebreaking
+    ('Num. duplicates', 'I10'), # not used
     ('Is sounding?', 'L'),
     ('Is bogus?', 'L'),
     ('Discard?', 'L'),
-    ('Unix time', 'I10'),
+    ('Unix time', 'I10'), # only for tiebreaking
     ('Julian day', 'I10'),
-    ('Date', 'A20'),
-    ('SLP', 'F13.5'),
-    ('SLP QC', 'I7'),
+    ('Date', 'A20'), # e.g., '20080205120000'
+    ('SLP', 'F13.5'), # optional for bogus obs
+    ('SLP QC', 'I7'), # optional for bogus obs
     ('Ref Pressure', 'F13.5'),
     ('Ref Pressure QC', 'I7'),
     ('Ground Temp', 'F13.5'),
@@ -56,6 +56,17 @@ header_records = OrderedDict([
 #    ('Precipitable water', 'F13.5'),
 #    ('Precipitable water QC', 'I7'),
 ])
+
+header_defaults = {
+    'ID': 'Observation ID Here',
+    'Name': 'Observation Name Here',
+    'FM-Code': 'FM-35',
+    'Sequence number': 0, # only for tiebreaking
+    'Num. duplicates': np.nan, # not used
+    'Is sounding?': True,
+    'Is bogus?': False,
+    'Discard?': False,
+}
 
 data_records = OrderedDict([
     ('Pressure (Pa)', 'F13.5'),
@@ -99,6 +110,7 @@ class Report(object):
         self.obs = {}
         self.header_dtypes = {}
         self.header_fieldlen = {}
+        self.header_defaults = {}
         self.header_fmt = ''
         self.data_dtypes = {}
         self.data_fieldlen = {}
@@ -106,27 +118,33 @@ class Report(object):
         # set up header fields
         for field,rec in header_records.items():
             dtype = rec[0].lower()
+            default = header_defaults.get(field,None)
             if dtype == 'a':
                 # string
                 dtype = dtype.replace('a','s')
                 self.header_dtypes[field] = str
+                if default is None: default = 'DEFAULT'
             elif dtype == 'l':
                 # boolean represented as T or F
                 dtype = dtype.replace('l','s')
                 self.header_dtypes[field] = boolean
+                if default is None: default = False
             elif dtype == 'i':
                 # integer
                 dtype = dtype.replace('i','d')
                 self.header_dtypes[field] = int
+                if default is None: default = np.nan
             else:
                 # default to float
                 self.header_dtypes[field] = float
+                if default is None: default = np.nan
             try:
                 fieldlen = int(rec[1:].split('.')[0])
             except ValueError:
                 # default field length (e.g., for logical/boolean)
                 fieldlen = 10
             self.header_fieldlen[field] = fieldlen
+            self.header_defaults[field] = default
             self.header_fmt += '{:'+rec[1:]+dtype+'}'
         # set up data fields
         for field,rec in data_records.items():
