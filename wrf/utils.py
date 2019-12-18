@@ -370,7 +370,19 @@ class Tower():
                     # vars are where...
                     self.ts = pd.read_csv(f,delim_whitespace=True,header=None,
                                           names=self.ts_columns)
-                    self.ts.drop(columns=['id'])  # domain d0?
+                    self.ts.drop(columns=['id'],inplace=True)  # domain d0?
+                    if self.start_time is not None:
+                        if self.time_step is None:
+                            tdelta = pd.to_timedelta(self.ts['ts_hour'], unit='h')
+                        else:
+                            tsteps = np.arange(1,len(self.ts)+1)
+                            tdelta = pd.to_timedelta(tsteps*self.time_step,
+                                                     unit='s')
+                            assert np.allclose(self.ts['ts_hour'],
+                                               tdelta.total_seconds() / 3600.,
+                                               atol=1e-5)
+                        self.ts['datetime'] = pd.to_datetime(self.start_time) + tdelta
+                        self.ts.set_index('datetime',inplace=True)
 
     def to_dataframe(self,start_time=None,
                      time_unit='h',time_step=None,
