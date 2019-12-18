@@ -241,6 +241,28 @@ class Tower():
         'th': 'theta', # virtual potential temperature
     }
 
+    ts_columns = [
+        'id',		# grid ID
+        'ts_hour',	# forecast time in hours
+        'id_tsloc',	# time series ID
+        'ix',   	# grid location (nearest grid to the station)
+        'iy',   	# grid location (nearest grid to the station)
+        't',		# 2 m Temperature (K)
+        'q',		# 2 m vapor mixing ratio (kg/kg)
+        'u',		# 10 m U wind (earth-relative)
+        'v',		# 10 m V wind (earth-relative)
+        'psfc',		# surface pressure (Pa)
+        'glw',		# downward longwave radiation flux at the ground (W/m^2, downward is positive)
+        'gsw',		# net shortwave radiation flux at the ground (W/m^2, downward is positive)
+        'hfx',		# surface sensible heat flux (W/m^2, upward is positive)
+        'lh',		# surface latent heat flux (W/m^2, upward is positive)
+        'tsk',		# skin temperature (K)
+        'tslb(1)',	# top soil layer temperature (K)
+        'rainc',	# rainfall from a cumulus scheme (mm)
+        'rainnc',	# rainfall from an explicit scheme (mm)
+        'clw',		# total column-integrated water vapor and cloud variables
+    ]
+
     def __init__(self,fstr,varlist=None):
         """The file-path string should be:
             '[path to towers]/[tower abrv.].d0[domain].*'
@@ -306,7 +328,6 @@ class Tower():
 
             # Read surface variables (no height component)
             elif varn == 'TS':
-                nv = len(line.split()) - 2
                 with open(fpath) as f:
                     # Fortran formatted output creates problems when the
                     #   time-series id is 3 digits long and blends with the
@@ -327,8 +348,9 @@ class Tower():
                     self.stationz = float(header[88:94])
                     # Note: need to look up what tslist outputs to know which
                     # vars are where...
-                    self.ts = pd.read_csv(f,delim_whitespace=True,header=None).values[:,2:]
-                    assert (self.ts.shape == (nt,nv))
+                    self.ts = pd.read_csv(f,delim_whitespace=True,header=None,
+                                          names=self.ts_columns)
+                    self.ts.drop(columns=['id'])  # domain d0?
 
     def to_dataframe(self,start_time,
                      time_unit='h',time_step=None,
