@@ -263,10 +263,13 @@ class Tower():
         'clw',		# total column-integrated water vapor and cloud variables
     ]
 
-    def __init__(self,fstr,varlist=None):
+    def __init__(self,fstr,
+                 start_time=None,
+                 varlist=None):
         """The file-path string should be:
             '[path to towers]/[tower abrv.].d0[domain].*'
         """
+        self.start_time = start_time
         self.time = None
         self.nt = None
         self.nz = None
@@ -352,7 +355,7 @@ class Tower():
                                           names=self.ts_columns)
                     self.ts.drop(columns=['id'])  # domain d0?
 
-    def to_dataframe(self,start_time,
+    def to_dataframe(self,start_time=None,
                      time_unit='h',time_step=None,
                      heights=None,height_var='height',agl=False,
                      exclude=['ts']):
@@ -360,10 +363,11 @@ class Tower():
         
         Parameters
         ----------
-        start_time: str or pd.Timestamp
+        start_time: str or pd.Timestamp, optional
             The datetime index is constructed from a pd.TimedeltaIndex
             plus this start_time, where the timedelta index is formed by
-            the saved time array.
+            the saved time array. If not specified, here, then it should
+            be specified when creating the class object.
         time_unit: str, optional
             Timedelta unit for constructing datetime index, only used if
             time_step is None.
@@ -389,6 +393,10 @@ class Tower():
             List of fields to excldue from the output dataframe. By
             default, the surface time-series data ('ts') are excluded.
         """
+        if start_time is None:
+            assert (self.start_time is not None), \
+                    'Need to specify start_time'
+            start_time = self.start_time
         # convert varname list to lower case
         varns0 = [ varn.lower() for varn in self.varns ]
         # remove excluded vars
