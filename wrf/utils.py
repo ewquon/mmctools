@@ -265,11 +265,28 @@ class Tower():
 
     def __init__(self,fstr,
                  start_time=None,
+                 time_step=None,
                  varlist=None):
-        """The file-path string should be:
-            '[path to towers]/[tower abrv.].d0[domain].*'
+        """Read timeseries data from file-path string.
+
+        Parameters
+        ----------
+        fstr: str
+            The file-path string used to glob the output files, e.g.:
+            '[path_to_towers]/[tower_abbrv].d0[domain].*'
+        start_time: str or pd.Timestamp, optional
+            Used to construct the pd.DatetimeIndex for the ts data, and
+            if to_dataframe() is called, for the time-height dataframe.
+        time_step: float or None, optional
+            Time-step size, in seconds, to override the output times in
+            the data files. Used in conjunction with start_time to form
+            the pd.DatatimeIndex for the ts data, and if to_dataframe()
+            is called, for the time-height dataframe as well. May be
+            useful if times in output files do not have sufficient
+            precision.
         """
         self.start_time = start_time
+        self.time_step = time_step
         self.time = None
         self.nt = None
         self.nz = None
@@ -397,6 +414,8 @@ class Tower():
             assert (self.start_time is not None), \
                     'Need to specify start_time'
             start_time = self.start_time
+        if time_step is None:
+            time_step = self.time_step
         # convert varname list to lower case
         varns0 = [ varn.lower() for varn in self.varns ]
         # remove excluded vars
