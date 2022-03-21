@@ -6,9 +6,9 @@ Based on https://github.com/NWTC/datatools/blob/master/remote_sensing.py
 import numpy as np
 import pandas as pd
 
-def Vaisala_CL31(fname,zcol=8,unpack=True,
-                 status_col='Status',
-                 cloud_cols=['Height1','Height2','Height3'],
+def Vaisala_CL31(fname,zcol=8,
+                 load_backscatter_profile=True,
+                 cloud_cols=['Height1','Height2','Height3','Status'],
                  verbose=True):
     """Vaisala CL31 ceilometer XLSX output processed with CL-VIEW software
     Assume we want heights in meters
@@ -24,29 +24,39 @@ def Vaisala_CL31(fname,zcol=8,unpack=True,
     header[1] = 'Time'
     if verbose:
         # note: first row of excel spreadsheet gets put into the header # (skipped row)
-        print(xlsx.iloc[0,0]) # skipped row
-        print(xlsx.iloc[1,0]) # skipped row
-        print('Cloud height units:',header2[3:6])
-        print('Backscatter height units:',header2[zcol-1])
-        print(xlsx.iloc[-1,0]) # skipped row
+        print(' ',xlsx.iloc[0,0]) # skipped row
+        print(' ',xlsx.iloc[1,0]) # skipped row
+        print('  Cloud height units:',header2[3:6])
+        print('  Backscatter height units:',header2[zcol-1])
+        print(' ',xlsx.iloc[-1,0]) # skipped row
     header[zcol-1:] = header2[zcol-1:]
 
     # now create a new dataframe without extra header information
     df = pd.DataFrame(data=xlsx.iloc[4:-1].values, columns=header)
     df = df.replace('/////', np.nan)
 
-    # create timestamps
-    df['date_time'] = df[['Date','Time']].apply(lambda x: pd.datetime.combine(x[0].date(),x[1]), axis=1)
-    df = df.set_index('date_time')
-
+    # create date-time timestamps
+    Time_tstamp = pd.to_datetime(df['Time'], format='%H:%M:%S')
+    # - get rid of default '1990-01-01' date
+    timedelta = Time_tstamp - pd.to_datetime(Time_tstamp[0].date())
+    # - now we can easily add together
+    df['datetime'] = pd.to_datetime(df['Date']) + timedelta
+    df = df.set_index('datetime')
+    # from `datafilexlsx-example.pdf`, "signal sum" is for testing purposes
+    # from `cl31usersguide.pdf`, detection status:
+    #   0: no significant backscatter
+    #   1: one cloud base detected
+    #   2: two cloud bases detected
+    #   3: three cloud bases detected
+    #   4: full obscuration (?), no CBH detected
+    #   5: some obscuration, determined to be transparent
     df = df.drop(['Date','Time','Sig. Sum','Meters'],axis=1)
 
-    # split up dataframe
-    if unpack:
-        status = df[status_col]
-        clouds = df[cloud_cols]
-        backscatter = df.drop([status_col]+cloud_cols, axis=1)
-        return backscatter, clouds, status
+    clouds = df[cloud_cols]
+    if load_backscatter_profile:
+        # split up dataframe
+        backscatter = df.drop(cloud_cols, axis=1)
+        return backscatter, clouds
     else:
-        return df
+        return clouds
 
