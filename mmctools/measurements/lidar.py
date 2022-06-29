@@ -17,7 +17,11 @@ def Vaisala_CL31(fname,zcol=8,
     """
     if verbose:
         print('Loading '+fname+'...')
-    xlsx = pd.read_excel(fname)
+    if load_backscatter_profile:
+        xlsx = pd.read_excel(fname, na_values='/////')
+    else:
+        # more efficient option??
+        xlsx = pd.read_excel(fname, na_values='/////', usecols='A:G')
     header = xlsx.iloc[2].values
     header2 = xlsx.iloc[3].values
     header[0] = 'Date'
@@ -33,7 +37,6 @@ def Vaisala_CL31(fname,zcol=8,
 
     # now create a new dataframe without extra header information
     df = pd.DataFrame(data=xlsx.iloc[4:-1].values, columns=header)
-    df = df.replace('/////', np.nan)
 
     # create date-time timestamps
     Time_tstamp = pd.to_datetime(df['Time'], format='%H:%M:%S')
@@ -52,7 +55,9 @@ def Vaisala_CL31(fname,zcol=8,
     #   5: some obscuration, determined to be transparent
     df = df.drop(['Date','Time','Sig. Sum','Meters'],axis=1)
 
-    clouds = df[cloud_cols]
+    # get cloud heights
+    clouds = df[cloud_cols] * 0.3048 # convert ft to m
+
     if load_backscatter_profile:
         # split up dataframe
         backscatter = df.drop(cloud_cols, axis=1)
